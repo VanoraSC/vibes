@@ -34,6 +34,16 @@ fn main() -> Result<(), Box<dyn Error>> {
     for proto in &proto_files {
         if let Some(stem) = proto.file_stem().and_then(|s| s.to_str()) {
             let module_name = sanitize_module_name(stem);
+            let output_file = generated_root.join(format!("{stem}.rs"));
+
+            if !output_file.exists() {
+                // `prost-build` only emits Rust sources when the `.proto` file
+                // defines concrete messages. Service-only definitions (such as
+                // `message_service.proto`) do not produce an output module, so
+                // we skip generating an `include!` for those files.
+                continue;
+            }
+
             module_source.push_str(&format!(
                 "pub mod {module_name} {{\n    include!(concat!(env!(\"CARGO_MANIFEST_DIR\"), \"/generated_rust/{file}.rs\"));\n}}\n",
                 module_name = module_name,
