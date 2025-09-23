@@ -1,7 +1,9 @@
 # tonic_server
 
 The `tonic_server` crate hosts a Tonic-based RPC server for processing
-`message.Message` payloads defined in `message.proto`. The server validates
+`message.Message` payloads defined in `message.proto`. Those Protocol Buffer
+definitions are shared across the workspace and now live under
+`proto_gen/protobuf_definitions`. The server validates
 the declared payload length, interprets the bytes as an ASCII string, and
 responds with another `Message` that echoes the payload with additional text
 indicating it is the server's reply.
