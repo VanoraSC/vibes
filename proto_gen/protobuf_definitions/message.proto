@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package message;
+
+// Represents a binary payload tagged with a UUID identifier and explicit
+// length metadata.
+message Message {
+  // The UUID associated with the payload encoded as a hyphenated string.
+  string uid = 1;
+
+  // The raw binary payload.
+  bytes data = 2;
+
+  // The explicit length of the payload expressed in bytes.
+  uint64 data_length = 3;
+}
