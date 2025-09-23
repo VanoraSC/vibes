@@ -2,7 +2,7 @@
 
 use prost::Message as _;
 
-use proto_gen::generated::message::Message;
+use proto_gen::generated::echo::Message;
 
 /// Ensures that the generated `Message` type can be serialized and deserialized
 /// without losing information.
