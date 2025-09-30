@@ -22,3 +22,22 @@ fn message_round_trip_serialization() {
     assert_eq!(decoded.data, payload);
     assert_eq!(decoded.data_length as usize, decoded.data.len());
 }
+
+/// Ensures that the gRPC service module re-exports the shared `Message` type
+/// instead of generating a distinct struct.
+#[test]
+fn message_service_reuses_shared_message_type() {
+    use proto_gen::generated::echo::message_service;
+
+    let base = Message {
+        uid: "shared-identifier".to_string(),
+        data: vec![42, 24],
+        data_length: 2,
+    };
+
+    let via_service: message_service::Message = base.clone();
+
+    assert_eq!(via_service.uid, base.uid);
+    assert_eq!(via_service.data, base.data);
+    assert_eq!(via_service.data_length, base.data_length);
+}
