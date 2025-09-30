@@ -17,11 +17,12 @@ use serde::{Deserialize, Serialize};
 /// simple for testing.
 const MOCK_BEARER_TOKEN: &str = "vibes-mock-bearer-token";
 
-/// Security scheme wrapper for the bearer token required by the protected
-/// routes. This leverages Poem OpenAPI's [`SecurityScheme`] derive to document
-/// the requirement in the generated specification.
+/// Security scheme wrapper for the `Authorization: Bearer` header required by
+/// the protected routes. This leverages Poem OpenAPI's [`SecurityScheme`]
+/// derive to document the requirement in the generated specification and
+/// exposes a Swagger "Authorize" control through the renamed scheme.
 #[derive(SecurityScheme)]
-#[oai(type = "bearer")]
+#[oai(type = "bearer", bearer_format = "Mock fixture token", rename = "BearerAuth")]
 struct MockTokenAuth(Bearer);
 
 /// Payload accepted and returned by the echo endpoint.
@@ -149,7 +150,7 @@ mod tests {
     use super::*;
     use poem::test::TestClient;
     use poem::{Endpoint, http::StatusCode};
-    use serde_json::json;
+    use serde_json::{json, Value};
 
     /// Helper that logs in and retrieves the mock bearer token.
     async fn login<E: Endpoint>(client: &TestClient<E>) -> String {
@@ -310,5 +311,24 @@ mod tests {
             .await;
 
         response.assert_status(StatusCode::UNAUTHORIZED);
+    }
+
+    /// Ensures the generated OpenAPI specification documents the bearer token
+    /// security scheme on the protected routes while leaving the login route
+    /// unauthenticated.
+    #[test]
+    fn openapi_spec_lists_bearer_token_requirement() {
+        let service = OpenApiService::new(Api, "Vibes REST API", "1.0");
+        let spec: Value = serde_json::from_str(&service.spec()).expect("valid OpenAPI spec");
+
+        let echo_security = spec["paths"]["/echo"]["post"]["security"].as_array().expect("echo security entries");
+        assert!(echo_security.iter().any(|entry| entry.get("BearerAuth").is_some()));
+
+        let ingest_security = spec["paths"]["/ingest"]["post"]["security"].as_array().expect("ingest security entries");
+        assert!(ingest_security.iter().any(|entry| entry.get("BearerAuth").is_some()));
+
+        assert!(spec["paths"]["/login"]["post"]["security"].is_null());
+
+        assert!(spec["components"]["securitySchemes"]["BearerAuth"].is_object());
     }
 }
