@@ -4,7 +4,7 @@
 //! specification and implements two endpoints: an echo endpoint and a
 //! telemetry ingestion endpoint.
 
-use poem::{Error, Result as PoemResult, Route, Server, http::StatusCode, listener::TcpListener};
+use poem::{Route, Server, listener::TcpListener};
 use poem_openapi::payload::Json;
 use poem_openapi::{Object, OpenApi, OpenApiService};
 use serde::{Deserialize, Serialize};
@@ -39,23 +39,18 @@ impl Api {
         Json(payload.0)
     }
 
-    /// Accepts a JSON string, parses it into a [`TelemetryRecord`], logs the
+    /// Accepts a JSON payload that represents a [`TelemetryRecord`], logs the
     /// content, and returns the structured representation.
     #[oai(path = "/ingest", method = "post")]
-    async fn ingest(&self, payload: Json<String>) -> PoemResult<Json<TelemetryRecord>> {
-        let record: TelemetryRecord = serde_json::from_str(&payload.0).map_err(|error| {
-            Error::from_string(
-                format!("Invalid JSON payload: {error}"),
-                StatusCode::BAD_REQUEST,
-            )
-        })?;
+    async fn ingest(&self, payload: Json<TelemetryRecord>) -> Json<TelemetryRecord> {
+        let record = payload.0;
 
         println!(
             "Received telemetry record: message='{}', count={}, ratio={}",
             record.message, record.count, record.ratio
         );
 
-        Ok(Json(record))
+        Json(record)
     }
 }
 
@@ -104,21 +99,20 @@ mod tests {
         response.assert_json(&payload).await;
     }
 
-    /// Ensures the ingestion route parses a JSON string and returns the
+    /// Ensures the ingestion route parses a JSON payload and returns the
     /// structured telemetry data.
     #[tokio::test]
-    async fn ingest_parses_json_string() {
+    async fn ingest_parses_json_payload() {
         let client = TestClient::new(create_app());
-        let telemetry_json = json!({
-            "message": "Temperature reading",
-            "count": 3,
-            "ratio": 0.618
-        })
-        .to_string();
+        let telemetry_record = TelemetryRecord {
+            message: String::from("Temperature reading"),
+            count: 3,
+            ratio: 0.618,
+        };
 
         let response = client
             .post("/api/ingest")
-            .body_json(&telemetry_json)
+            .body_json(&telemetry_record)
             .send()
             .await;
 
@@ -131,14 +125,16 @@ mod tests {
         assert!((parsed.ratio - 0.618).abs() < f64::EPSILON);
     }
 
-    /// Validates that invalid JSON strings produce a bad request error.
+    /// Validates that invalid JSON payloads produce a bad request error.
     #[tokio::test]
     async fn ingest_rejects_invalid_json() {
         let client = TestClient::new(create_app());
 
         let response = client
             .post("/api/ingest")
-            .body_json(&"not-json".to_string())
+            .body_json(&json!({
+                "message": "missing fields",
+            }))
             .send()
             .await;
 
@@ -149,6 +145,6 @@ mod tests {
             .into_string()
             .await
             .expect("body should be readable");
-        assert!(body.contains("Invalid JSON payload"));
+        assert!(!body.is_empty(), "error response should include a message");
     }
 }
