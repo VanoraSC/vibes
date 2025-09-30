@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "proto_gen",
+    "rest_api",
     "tonic_server",
 ]
 resolver = "2"
